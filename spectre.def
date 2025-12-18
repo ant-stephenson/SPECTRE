@@ -1,0 +1,54 @@
+Bootstrap: docker
+From: rocky:{{ VERSION }}
+Stage: build
+
+%arguments
+    VERSION=8.10
+
+%setup
+    touch /file1
+    touch ${APPTAINER_ROOTFS}/file2
+
+%files
+    BASE_DIR=/storage/hpc/08/stephe40/GitHub
+    $BASE_DIR/postdoc/SPECTRE/*
+
+%environment
+    export LISTEN_PORT=54321
+    export LC_ALL=C
+
+%post
+    conda create -f environment.yml
+
+%runscript
+    echo "Container was created $NOW"
+    echo "Arguments received: $*"
+    exec echo "$@"
+
+%startscript
+    nc -lp $LISTEN_PORT
+
+%test
+    grep -q NAME="\"Rocky Linux\"" /etc/os-release
+    if [ $? -eq 0 ]; then
+        echo "Container base is Rocky Linux as expected."
+    else
+        echo "Container base is not Rocky Linux."
+        exit 1
+    fi
+
+    uname -m | grep -q x86_64
+    if [ $? -eq 0 ]; then
+        echo "Container base uses x86_64 architecture."
+    else
+        echo "Container base uses different architecture (not x86_64)."
+        exit 1
+    fi
+
+%labels
+    Author a.stephenson3@lancaster.ac.uk
+    Version v0.0.1
+
+%help
+    This is a demo container used to illustrate a def file that uses all
+    supported sections.

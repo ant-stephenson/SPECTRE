@@ -24,3 +24,4 @@ dependencies:
     - torch-householder
     - pygsp
     - torch-ema
+prefix: /storage/hpc/08/stephe40/.conda/SPECTRE

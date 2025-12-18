@@ -19,13 +19,37 @@ from pathlib import Path
 from typing import Tuple
 from torch_ema import ExponentialMovingAverage
 
+print("import (local) libraries...", flush=True)
 from util.model_helper import zero_diag, rand_rot, rand_rewire, eigval_noise, deterministic_vector_sign_flip, sort_eigvecs, interpolate_eigvecs, reorder_adj, categorical_permute
-from util.eval_helper import degree_stats, orbit_stats_all, clustering_stats, spectral_stats, eigval_stats, spectral_filter_stats, eval_acc_lobster_graph, eval_acc_tree_graph, eval_acc_grid_graph, eval_acc_sbm_graph, eval_acc_planar_graph, eval_fraction_isomorphic, eval_fraction_unique_non_isomorphic_valid, eval_fraction_unique, compute_list_eigh, is_lobster_graph, is_grid_graph, is_sbm_graph, is_planar_graph
+print("imported util.model_helpers", flush=True)
+import os
+import copy
+import torch
+import numpy as np
+import networkx as nx
+import subprocess as sp
+import concurrent.futures
+import graph_tool.all as gt
+import pygsp as pg
+import secrets
+from random import shuffle
+from string import ascii_uppercase, digits
+from datetime import datetime
+from scipy.linalg import eigvalsh
+from scipy.stats import chi2
+from util.dist_helper import compute_mmd, gaussian_emd, gaussian, emd, gaussian_tv, disc
+from torch_geometric.utils import to_networkx
+from util.eval_helper import degree_stats, clustering_stats, spectral_stats, eigval_stats, spectral_filter_stats, eval_acc_lobster_graph, eval_acc_tree_graph, eval_acc_grid_graph, eval_acc_sbm_graph, eval_acc_planar_graph, eval_fraction_isomorphic, eval_fraction_unique_non_isomorphic_valid, eval_fraction_unique, compute_list_eigh, is_lobster_graph, is_grid_graph, is_sbm_graph, is_planar_graph
+print("imported util.eval_helpers", flush=True)
+from util.eval_helper import orbit_stats_all
 from model.noise_mlp import NoiseMLP
 from model.lambda_gan import LambdaDiscriminator, LambdaGenerator
 from model.SON_gan import SONPointNetDiscriminator, SONGenerator
 from model.ppgn_gan import PPGNDiscriminator, PPGNGenerator, MLPGenerator
+print("imported models", flush=True)
 from data import GraphDataModule, N_MAX
+
+print("import successful", flush=True)
 
 class GradMonitor(pl.callbacks.Callback):
     """
@@ -2271,7 +2295,7 @@ if __name__ == '__main__':
     data_module_params = {'batch_size': args.batch_size, 'k': args.k_eigval, 'n_nodes': args.n_nodes, 'n_graphs': args.n_graphs,
                         'n_data_workers': args.n_data_workers, 'same_sample': args.same_sample, 'n_start': args.n_start,
                         'n_end': args.n_end, 'dataset': args.dataset, 'validate_on_train_cond': args.validate_on_train_cond,
-                        'ignore_first_eigv': args.ignore_first_eigv, 'qm9_strict_eval': args.qm9_strict_eval}
+                        'ignore_first_eigv': args.ignore_first_eigv, 'qm9_strict_eval': args.qm9_strict_eval, 'seed': args.seed}
     data_module = GraphDataModule(**data_module_params)
 
     model_params = dict(beta1=args.beta1, beta2=args.beta2, lr_g=args.lr_g, lr_d=args.lr_d, gp_lambda=args.gp_lambda, n_max=args.n_max, 

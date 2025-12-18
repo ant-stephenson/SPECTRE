@@ -275,6 +275,52 @@ class SBMDataset(Dataset):
         graph["eigvec"] = F.pad(eigvecs, [0, size_diff, 0, size_diff])
         graph["mask"] = F.pad(torch.ones_like(self.adjs[idx]), [0, size_diff, 0, size_diff]).long()
         return graph
+    
+def eigh(G):
+    L = nx.normalized_laplacian_matrix(G).toarray()
+    L = torch.from_numpy(L).float()
+    eigval, eigvec = torch.linalg.eigh(L)
+    return eigval, eigvec
+
+class MyDataset(SBMDataset):
+    def __init__(self, dataset, n_nodes, n_graphs, k, seed=1, same_sample=False, SON=False, ignore_first_eigv=False):
+        filename = f'data/{dataset}/s={seed}_N={n_graphs}_n={n_nodes}_fixed.npy'
+        self.k = k
+        self.ignore_first_eigv = ignore_first_eigv
+        if os.path.isfile(os.path.splitext(filename)[0]+'.pt'):
+            self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max = torch.load(filename)
+            print(f'Dataset {filename} loaded from file')
+        Gs = np.load(f'/storage/hpc/08/stephe40/GitHub/postdoc/{filename}', allow_pickle=True)
+        print(f'Dataset {filename} loaded from file')
+
+        self.eigvals = []
+        self.eigvecs = []
+        self.n_nodes = []
+        self.max_eigval = 0
+        self.min_eigval = 0
+        self.same_sample = same_sample
+
+        self.adjs = [torch.from_numpy(nx.adjacency_matrix(G).toarray()).float() for G in Gs]
+        self.eigvals, self.eigvecs = zip(*[eigh(G) for G in Gs])
+        self.n_nodes = [G.number_of_nodes() for G in Gs]
+        self.max_eigval = torch.stack(self.eigvals).max()
+        self.min_eigvals = torch.stack(self.eigvals).min()
+        self.n_max = max(self.n_nodes)
+        torch.save([self.adjs, self.eigvals, self.eigvecs, self.n_nodes, self.max_eigval, self.min_eigval, self.same_sample, self.n_max], filename)
+        print(f'Dataset {filename} saved')
+
+        self.max_k_eigval = 0
+        for eigv in self.eigvals:
+            if eigv[self.k] > self.max_k_eigval:
+                self.max_k_eigval = eigv[self.k].item()
+
+class MySBMDataset(MyDataset):
+    def __init__(self, n_graphs, k, seed=1, same_sample=False, SON=False, ignore_first_eigv=False):
+        super().__init__("sbm", 200, n_graphs, k, seed, same_sample, SON, ignore_first_eigv)
+
+class MyDCSBMDataset(MyDataset):
+    def __init__(self, n_graphs, k, seed=1, same_sample=False, SON=False, ignore_first_eigv=False):
+        super().__init__("dcsbm", 200, n_graphs, k, seed, same_sample, SON, ignore_first_eigv)
 
 class LobsterDataset(Dataset):
     """ From https://github.com/lrjconan/GRAN/blob/master/utils/data_helper.py#L169 """
@@ -653,6 +699,9 @@ class PlanarDataset(Dataset):
         graph["mask"] = F.pad(torch.ones_like(self.adjs[idx]), [0, size_diff, 0, size_diff]).long()
         return graph
 
+class MyPlanarDataset(MyDataset):
+    def __init__(self, n_graphs, k, seed=1, same_sample=False, SON=False, ignore_first_eigv=False):
+        super().__init__("planar", 64, n_graphs, k, seed, same_sample, SON, ignore_first_eigv)
 
 def n_community(num_communities, max_nodes, p_inter=0.05):
     assert num_communities > 1
@@ -806,7 +855,7 @@ class GraphDataModule(pl.LightningDataModule):
                 same_sample: bool = False, n_start: int = 10, n_end: int = 20,
                 dataset: str = 'tree', validate_on_train_cond: bool = False,
                 ignore_first_eigv: bool = False, eval_MMD: bool = False,
-                compute_emd: bool = False, qm9_strict_eval: bool = False):
+                compute_emd: bool = False, qm9_strict_eval: bool = False, seed: int = 1):
         super().__init__()
         self.batch_size = batch_size
 
@@ -824,21 +873,25 @@ class GraphDataModule(pl.LightningDataModule):
         self.n_data_workers = n_data_workers
         self.same_sample = same_sample
 
+        self.seed = seed
+
         if self.dataset == 'tree':
             self.dataset_string = f'tree_{self.n_nodes}-{self.n_graphs}'
         elif self.dataset == 'grid':
             self.dataset_string = f'grid_{self.n_start}-{self.n_end}'
         elif self.dataset == 'grid_non_iso':
             self.dataset_string = f'grid_non_iso_{self.n_start}-{self.n_end}'
-        elif self.dataset == 'sbm':
+        elif self.dataset in ('sbm', 'mysbm'):
             self.dataset_string = f'sbm_{self.n_graphs}'
+        elif self.dataset in ('dcsbm', 'mydcsbm'):
+            self.dataset_string = f'dcsbm_{self.n_graphs}'
         elif self.dataset == 'lobster':
             self.dataset_string = f'lobster_{self.n_graphs}'
         elif self.dataset == 'protein':
             self.dataset_string = f'protein'
         elif self.dataset == 'qm9':
             self.dataset_string = f'qm9_{self.n_graphs}'
-        elif self.dataset == 'planar':
+        elif self.dataset in ('planar', 'myplanar'):
             self.dataset_string = f'planar_{self.n_nodes}-{self.n_graphs}'
         elif self.dataset == 'community':
             self.dataset_string = f'community_{self.n_start}-{self.n_end}-{self.n_graphs}'
@@ -857,12 +910,18 @@ class GraphDataModule(pl.LightningDataModule):
             graphs = GridDatasetNonIso(self.n_start, self.n_end, self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'sbm':
             graphs = SBMDataset(self.n_graphs, self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
+        elif self.dataset == 'mysbm':
+            graphs = MySBMDataset(self.n_graphs, self.k, seed=self.seed, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
+        elif self.dataset == 'mydcsbm':
+            graphs = MyDCSBMDataset(self.n_graphs, self.k, seed=self.seed, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'lobster':
             graphs = LobsterDataset(self.n_graphs, self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'protein':
             graphs = ProteinDataset(self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'planar':
             graphs = PlanarDataset(self.n_nodes, self.n_graphs, self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
+        elif self.dataset == 'myplanar':
+            graphs = MyPlanarDataset(self.n_graphs, self.k, seed=self.seed, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'community':
             graphs = CommunityDataset(self.n_start, self.n_end, self.n_graphs, self.k, same_sample=self.same_sample, ignore_first_eigv=self.ignore_first_eigv)
         elif self.dataset == 'qm9':
@@ -900,12 +959,12 @@ class GraphDataModule(pl.LightningDataModule):
             self.molecular_metrics = BasicMolecularMetrics(self.atom_dict, self.bond_dict, self.train, strict=self.qm9_strict_eval)
         else:
             if self.eval_MMD:
-                val_graphs = [nx.from_numpy_matrix(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.test]
+                val_graphs = [nx.from_numpy_array(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.test]
                 val_eigvals = [graph["eigval"][1:self.k+1].cpu().detach().numpy() for graph in self.test]
             else:  
-                val_graphs = [nx.from_numpy_matrix(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.val]
+                val_graphs = [nx.from_numpy_array(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.val]
                 val_eigvals = [graph["eigval"][1:self.k+1].cpu().detach().numpy() for graph in self.val]
-            train_graphs = [nx.from_numpy_matrix(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.train]
+            train_graphs = [nx.from_numpy_array(g['adj'][:g['n_nodes'], :g['n_nodes']].cpu().detach().numpy()) for g in self.train]
             train_eigvals = [graph["eigval"][1:self.k+1].cpu().detach().numpy() for graph in self.train]
             # Get training set vs validation set MMD measures
             if self.compute_emd: 

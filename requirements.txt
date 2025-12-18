@@ -1,0 +1,24 @@
+# conda create --prefix /storage/hpc/08/stephe40/.conda/SPECTRE python=3.9
+# conda activate /storage/hpc/08/stephe40/.conda/SPECTRE
+# conda install pip
+# pip install -r SPECTRE/requirements.txt
+# still doesn't work; try using apptainer?
+# module add apptainer/1.4
+
+# cudatoolkit==11.1
+# pytorch==1.9
+numpy==1.21
+pytorch-lightning==1.5
+networkx==2.6
+pyyaml
+matplotlib
+jupyter
+scipy
+torch_geometric #pyg==2.0
+tensorboard==2.6
+pyemd
+graph-tool # Only available for linux/osx needed to estimate SBM validity
+rdkit==2021.9.3
+torch-householder
+pygsp
+torch-ema
