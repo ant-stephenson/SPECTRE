@@ -55,6 +55,21 @@ Proteins:
 python full_gan.py --batch_size 1 --max_epochs=1020 --log_every_n_steps=60 --check_val_every_n_epoch 20 --gen_gelu --disc_gelu --k_eigval 16 --eigvec_temp_decay --decay_eigvec_temp_over 176 --min_eigvec_temp 0.8 --n_eigval_warmup_epochs 176 --n_eigvec_warmup_epochs 176 --eigval_temp_decay --decay_eigval_temp_over 176 --min_eigval_temp 0.8 --SON_D_full_readout --noisy_gen --SON_normalize_left --lambda_gating --lambda_last_gating --lambda_upsample --SON_small --noisy_disc --derived_eigval_noise --normalize_noise --spectral_norm --eigvec_right_noise --gp_shared_alpha --no_restart --SON_gumbel_temperature_decay --decay_SON_gumbel_temp_over 875 --SON_gumbel_temperature_warmup_epochs 0 --n_data_workers 4 --dataset protein --gp_do_backwards --eigvec_sign_flip --ignore_first_eigv --gp_include_unpermuted --clip_grad_norm 1.0 --accelerator 'ddp' --gpus 4 --seed 0
 ```
 
+Enzymes:
+```
+python full_gan.py --batch_size 1 --max_epochs=400 --log_every_n_steps=240 \
+  --check_val_every_n_epoch 100 --gen_gelu --disc_gelu --k_eigval 16 --eigvec_temp_decay \
+  --decay_eigvec_temp_over 176 --min_eigvec_temp 0.8 --n_eigval_warmup_epochs 176 \
+  --n_eigvec_warmup_epochs 176 --eigval_temp_decay --decay_eigval_temp_over 176 \
+  --min_eigval_temp 0.8 --SON_D_full_readout --noisy_gen --SON_normalize_left \
+  --lambda_gating --lambda_last_gating --lambda_upsample --SON_small --noisy_disc \
+  --derived_eigval_noise --normalize_noise --spectral_norm --eigvec_right_noise \
+  --gp_shared_alpha --no_restart --SON_gumbel_temperature_decay --decay_SON_gumbel_temp_over 875 \
+  --SON_gumbel_temperature_warmup_epochs 0 --n_data_workers 4 --dataset enzyme \
+  --gp_do_backwards --eigvec_sign_flip --ignore_first_eigv --gp_include_unpermuted \
+  --clip_grad_norm 1.0 --accelerator 'ddp' --gpus 4 --seed 0
+```
+
 Community:
 ```
 python full_gan.py --batch_size 10 --max_epochs=12000 --log_every_n_steps=60 --check_val_every_n_epoch 90 --gen_gelu --disc_gelu --k_eigval 2 --eigvec_temp_decay --decay_eigvec_temp_over 2000 --min_eigvec_temp 0.8 --n_eigval_warmup_epochs 2000 --n_eigvec_warmup_epochs 2000 --eigval_temp_decay --decay_eigval_temp_over 2000 --min_eigval_temp 0.8 --SON_D_full_readout --noisy_gen --SON_normalize_left --lambda_gating --lambda_last_gating --lambda_upsample --SON_small --noisy_disc --derived_eigval_noise --normalize_noise --spectral_norm --eigvec_right_noise --gp_shared_alpha --no_restart --SON_gumbel_temperature_decay --decay_SON_gumbel_temp_over 10000 --SON_gumbel_temperature_warmup_epochs 0 --n_data_workers 4 --dataset community --n_start 12 --n_end 21 --n_graphs 100 --gp_do_backwards --eigvec_sign_flip --ignore_first_eigv --gp_include_unpermuted --clip_grad_norm 1.0
